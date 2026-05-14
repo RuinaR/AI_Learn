@@ -6,7 +6,9 @@ from ultralytics import YOLO
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train a YOLO model for helmet/person detection.")
+    parser = argparse.ArgumentParser(
+        description="Train a YOLO model for helmet/person/vest detection."
+    )
     parser.add_argument("--model", default="yolo11m.pt", help="Base YOLO model or checkpoint.")
     parser.add_argument(
         "--data",
@@ -27,7 +29,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--name",
-        default="helmet_person_yolo11m_960",
+        default="helmet_person_vest_yolo11m_960",
         help="Run name under the project directory.",
     )
     return parser.parse_args()
@@ -50,4 +52,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,6 +1,6 @@
 # AI_Learn
 
-`AI_Learn` 폴더는 실제 서비스 레포가 아닌, YOLO 기반 헬멧/사람 객체 탐지 모델을 학습하기 위한 독립 작업공간입니다. 이곳에서 데이터셋 점검, 학습, 검증, 가중치 정리를 수행한 뒤, 완성된 `.pt` 파일만 다른 프로젝트에 복사해서 사용합니다.
+`AI_Learn` 폴더는 실제 서비스 레포가 아닌, YOLO 기반 헬멧/사람/조끼 PPE 객체 탐지 모델을 학습하기 위한 독립 작업공간입니다. 이곳에서 데이터셋 점검, 학습, 검증, 가중치 정리를 수행한 뒤, 완성된 `.pt` 파일만 다른 프로젝트에 복사해서 사용합니다. 학습 완료 후 최종 배포용 가중치는 `AI_Learn/weights/` 폴더에 따로 보관합니다.
 
 외부 프로젝트 `hiyoung_team_github/safety_monitor_workspace`는 Python 기반 AI Worker에서 YOLO `.pt` 모델을 읽어 사용한다고 가정합니다. 이 작업공간에서는 외부 프로젝트 파일을 읽거나 수정하지 않고, 학습에 필요한 파일만 현재 폴더 안에서 관리합니다.
 
@@ -11,9 +11,30 @@
 ```yaml
 0: helmet
 1: person
+2: vest
 ```
 
 클래스 이름을 바꾸거나 순서를 바꾸면 외부 프로젝트에서 오동작할 수 있습니다.
+
+## SH17 원본 클래스 매핑
+
+이번 학습에서는 SH17 원본 데이터셋의 클래스 전체를 그대로 쓰지 않고, 아래 3개 클래스만 사용합니다.
+
+```text
+Person -> person
+Helmet -> helmet
+Safety-vest -> vest
+```
+
+중요: 원본 데이터셋의 class id를 그대로 사용하면 안 됩니다. 최종 YOLO 라벨은 반드시 아래 기준으로 다시 매핑해야 합니다.
+
+```text
+helmet = 0
+person = 1
+vest = 2
+```
+
+즉, 원본 `Safety-vest` 클래스는 최종 라벨에서 `vest`라는 이름과 `class id 2`로 저장되어야 합니다.
 
 ## 권장 폴더 구조
 
@@ -46,15 +67,34 @@ class_id x_center y_center width height
 
 모든 bbox 값은 정규화된 값이라서 `0~1` 범위여야 합니다.
 
+## YAML 파일 구분
+
+이 작업공간에는 같은 데이터셋 구조를 서로 다른 실행 환경에서 쉽게 쓰기 위해 YAML 파일을 분리해 두었습니다.
+
+- `datasets/hiyoung_ppe.yaml`: 기존 Colab 기준 YAML
+- `datasets/hiyoung_ppe_colab.yaml`: Colab + Google Drive 기준 YAML
+- `datasets/hiyoung_ppe_local.yaml`: 로컬 Windows 기준 YAML
+
+기본 경로는 아래와 같습니다.
+
+```text
+hiyoung_ppe_colab.yaml -> /content/drive/MyDrive/AI_Learn/datasets/hiyoung_ppe
+hiyoung_ppe_local.yaml -> C:/Users/AISW_203_114/Desktop/AI_Learn/datasets/hiyoung_ppe
+```
+
+로컬에서 데이터셋 검사를 할 때는 기본값으로 `datasets/hiyoung_ppe_local.yaml`이 사용됩니다. Colab에서 실행할 때는 `--yaml datasets/hiyoung_ppe_colab.yaml` 또는 기존 `datasets/hiyoung_ppe.yaml`을 사용하면 됩니다.
+
 ## Colab + Google Drive 기준 사용 순서
 
 1. 이 폴더를 Google Drive의 `MyDrive/AI_Learn` 위치에 맞춰 두고 데이터셋을 `datasets/hiyoung_ppe/` 아래에 배치합니다.
-2. `datasets/hiyoung_ppe.yaml`의 클래스 이름이 `helmet`, `person` 순서인지 다시 확인합니다.
-3. 필요하면 Colab 또는 로컬에서 `scripts/check_yolo_dataset.py`로 데이터셋 구조와 라벨 형식을 검사합니다.
-4. Colab에서 `scripts/train_yolo.py` 또는 `notebooks/train_hiyoung_ppe_colab.ipynb`를 사용해 학습합니다.
-5. 학습 완료 후 생성된 `best.pt`를 `scripts/validate_model.py`로 불러와 클래스 이름과 예측 결과를 점검합니다.
-6. 최종 확인이 끝난 가중치를 외부 프로젝트의 `safety_ai_monitor/models/weights/` 폴더로 복사합니다.
-7. 외부 프로젝트에서는 `config.py`의 `MODEL_PATH`를 복사한 `.pt` 파일명으로 맞춰 사용하면 됩니다.
+2. `datasets/hiyoung_ppe.yaml`의 클래스 이름이 `helmet`, `person`, `vest` 순서인지 다시 확인합니다.
+3. 로컬 Windows에서는 `python scripts/check_yolo_dataset.py`로 데이터셋 구조와 라벨 형식을 검사합니다.
+4. Colab에서는 `python scripts/check_yolo_dataset.py --yaml datasets/hiyoung_ppe_colab.yaml` 또는 노트북 안의 명령으로 같은 검사를 수행합니다.
+5. 검사 결과에서 클래스가 `helmet`, `person`, `vest` 3개로 인식되는지 확인합니다.
+6. Colab에서 `scripts/train_yolo.py` 또는 `notebooks/train_hiyoung_ppe_colab.ipynb`를 사용해 학습합니다.
+7. 학습 완료 후 생성된 `best.pt`를 `scripts/validate_model.py`로 불러와 클래스 이름과 예측 결과를 점검합니다.
+8. 최종 확인이 끝난 가중치를 외부 프로젝트의 `safety_ai_monitor/models/weights/` 폴더로 복사합니다.
+9. 외부 프로젝트에서는 `config.py`의 `MODEL_PATH`를 `hiyoung_helmet_person_vest_yolo11m.pt` 같은 파일명으로 맞춰 사용하면 됩니다.
 
 ## 외부 프로젝트 반영 방법
 
@@ -64,15 +104,31 @@ class_id x_center y_center width height
 safety_ai_monitor/models/weights/
 ```
 
-복사 후 외부 프로젝트의 `config.py`에서 `MODEL_PATH`를 새 파일명으로 지정하면 됩니다. 이 작업공간에는 외부 프로젝트 파일이 없으므로, 실제 반영은 해당 프로젝트에서 별도로 수행해야 합니다.
+복사 후 외부 프로젝트의 `config.py`에서 `MODEL_PATH`를 예를 들어 `hiyoung_helmet_person_vest_yolo11m.pt`로 지정하면 됩니다. 이 작업공간에는 외부 프로젝트 파일이 없으므로, 실제 반영은 해당 프로젝트에서 별도로 수행해야 합니다.
 
 ## Git 관리 주의사항
 
-다음 파일과 결과물은 Git에 올리지 않는 것을 권장합니다.
+이 작업공간은 학습 실험 중간 산출물과 원본 데이터를 Git에서 제외하고, 최종 배포용 `.pt`만 선택적으로 포함하는 정책을 사용합니다.
 
-- 원본 데이터셋 이미지와 라벨
-- `runs/` 아래 학습 결과물
-- `.pt`, `.onnx` 같은 모델 가중치 파일
+- 원본 데이터셋과 변환 데이터셋은 Git에 올리지 않습니다.
+- `datasets/hiyoung_ppe/`, `raw_datasets/`, `downloads/` 같은 데이터 폴더는 Git 제외 대상입니다.
+- Colab 학습 결과인 `runs/`와 로그 폴더 `logs/`는 Git에 올리지 않습니다.
+- 따라서 `runs/**/weights/best.pt`, `runs/**/weights/last.pt`도 Git에 포함되지 않습니다.
+- 최종 배포 또는 공유용 `.pt` 파일만 `weights/` 폴더에 복사해서 Git에 포함합니다.
+- 현재 정책상 `weights/*.pt`는 포함되지만 `*.onnx`, `*.engine`, `*.pth`는 제외합니다.
 
-이 저장소의 `.gitignore`에는 위 항목이 반영되어 있습니다.
+권장 사용 방식은 아래와 같습니다.
 
+1. Colab 학습이 끝나면 `runs/.../weights/best.pt`를 확인합니다.
+2. 최종본만 `weights/hiyoung_helmet_person_vest_yolo11m.pt`로 복사합니다.
+3. 커밋할 때는 `weights/` 아래 최종 `.pt` 파일만 포함합니다.
+
+파일 크기가 50MB 이상이면 일반 Git 대신 Git LFS 사용을 권장합니다. 예시는 아래와 같습니다.
+
+```bash
+git lfs install
+git lfs track "weights/*.pt"
+git add .gitattributes
+```
+
+이 저장소의 `.gitignore`에는 위 정책이 반영되어 있습니다.

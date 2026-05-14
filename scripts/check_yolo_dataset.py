@@ -6,13 +6,22 @@ from pathlib import Path
 import yaml
 
 
+def get_class_names(config: dict) -> list[str]:
+    names = config.get("names", {})
+    if isinstance(names, dict):
+        return [names[key] for key in sorted(names)]
+    if isinstance(names, list):
+        return names
+    return []
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate YOLO detection dataset structure and label files."
     )
     parser.add_argument(
         "--yaml",
-        default="datasets/hiyoung_ppe.yaml",
+        default="datasets/hiyoung_ppe_local.yaml",
         help="Path to the YOLO dataset yaml file.",
     )
     return parser.parse_args()
@@ -65,7 +74,7 @@ def print_counts(dataset_root: Path) -> None:
         print(f"{section}: images={image_count}, labels={label_count}")
 
 
-def validate_label_file(label_path: Path) -> list[str]:
+def validate_label_file(label_path: Path, allowed_class_ids: set[int]) -> list[str]:
     errors: list[str] = []
     with label_path.open("r", encoding="utf-8") as file:
         for line_number, raw_line in enumerate(file, start=1):
@@ -86,9 +95,9 @@ def validate_label_file(label_path: Path) -> list[str]:
                 errors.append(f"{label_path} line {line_number}: invalid class id '{parts[0]}'")
                 continue
 
-            if class_id not in (0, 1):
+            if class_id not in allowed_class_ids:
                 errors.append(
-                    f"{label_path} line {line_number}: class id {class_id} is outside 0~1"
+                    f"{label_path} line {line_number}: class id {class_id} is outside allowed range"
                 )
 
             try:
@@ -107,14 +116,14 @@ def validate_label_file(label_path: Path) -> list[str]:
     return errors
 
 
-def validate_labels(dataset_root: Path) -> list[str]:
+def validate_labels(dataset_root: Path, allowed_class_ids: set[int]) -> list[str]:
     errors: list[str] = []
     for split in ("train", "val", "test"):
         label_dir = dataset_root / "labels" / split
         if not label_dir.exists():
             continue
         for label_path in sorted(label_dir.glob("*.txt")):
-            errors.extend(validate_label_file(label_path))
+            errors.extend(validate_label_file(label_path, allowed_class_ids))
     return errors
 
 
@@ -128,14 +137,17 @@ def main() -> int:
 
     config = load_dataset_config(yaml_path)
     dataset_root = resolve_dataset_root(yaml_path, config)
+    class_names = get_class_names(config)
+    allowed_class_ids = set(range(len(class_names)))
 
     print(f"Dataset yaml: {yaml_path}")
     print(f"Dataset root: {dataset_root}")
+    print(f"Expected classes ({len(class_names)}): {class_names}")
 
     missing_dirs = validate_required_dirs(dataset_root)
     print_counts(dataset_root)
 
-    errors = validate_labels(dataset_root)
+    errors = validate_labels(dataset_root, allowed_class_ids)
 
     if missing_dirs:
         print("\nMissing required directories:")
@@ -157,4 +169,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
