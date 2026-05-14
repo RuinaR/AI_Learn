@@ -1,0 +1,9 @@
+path: /content/drive/MyDrive/AI_Learn/datasets/hiyoung_ppe
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: helmet
+  1: person
+

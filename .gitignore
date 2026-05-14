@@ -1,0 +1,10 @@
+runs/
+datasets/hiyoung_ppe/
+weights/*.pt
+weights/*.onnx
+*.pt
+*.onnx
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+
