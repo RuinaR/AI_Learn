@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--weights", required=True, help="Path to trained .pt weights file.")
     parser.add_argument(
         "--source",
-        required=True,
+        default=None,
         help="Path to an image, directory, video file, or camera stream source.",
     )
     parser.add_argument("--conf", type=float, default=0.5, help="Prediction confidence threshold.")
@@ -53,8 +53,11 @@ def main() -> int:
     model = YOLO(str(weights_path))
     valid = validate_class_names(model)
 
-    results = model.predict(source=args.source, conf=args.conf, save=args.save)
-    print(f"Prediction completed. Results objects: {len(results)}")
+    if args.source:
+        results = model.predict(source=args.source, conf=args.conf, save=args.save)
+        print(f"Prediction completed. Results objects: {len(results)}")
+    else:
+        print("No prediction source provided. Skipping predict() and validating class names only.")
 
     return 0 if valid else 1
 

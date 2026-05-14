@@ -96,6 +96,58 @@ hiyoung_ppe_local.yaml -> C:/Users/AISW_203_114/Desktop/AI_Learn/datasets/hiyoun
 8. 최종 확인이 끝난 가중치를 외부 프로젝트의 `safety_ai_monitor/models/weights/` 폴더로 복사합니다.
 9. 외부 프로젝트에서는 `config.py`의 `MODEL_PATH`를 `hiyoung_helmet_person_vest_yolo11m.pt` 같은 파일명으로 맞춰 사용하면 됩니다.
 
+## VSCode Colab 확장 실행 순서
+
+학습은 로컬 Windows 터미널에서 실행하지 않고, VSCode의 Colab 확장을 통해 Colab 원격 런타임에서 진행합니다.
+
+1. VSCode에서 `notebooks/train_hiyoung_ppe_colab.ipynb`를 엽니다.
+2. Colab 확장으로 런타임에 연결하고 GPU 런타임을 선택합니다.
+3. Google Drive mount 인증을 진행합니다.
+4. 모든 경로는 로컬 `Desktop`이 아니라 `/content/drive/MyDrive/AI_Learn` 기준으로 실행합니다.
+5. 먼저 데이터셋 검사 셀을 실행해 `datasets/hiyoung_ppe_colab.yaml` 기준 구조를 확인합니다.
+6. `yolo11s`, `10 epoch` 테스트 학습 셀을 먼저 실행합니다.
+7. 테스트 모델 검증 셀로 `best.pt`의 클래스 이름이 `helmet`, `person`, `vest`인지 확인합니다.
+8. 테스트가 정상적으로 끝나면 `yolo11m` 본 학습 셀을 실행합니다.
+9. 마지막으로 최종 `best.pt`를 `weights/hiyoung_helmet_person_vest_yolo11m.pt`로 복사합니다.
+
+## SH17 변환 순서
+
+SH17 원본 데이터셋은 `raw_datasets/sh17/` 아래에 두고, 원본 클래스 중 `Person`, `Helmet`, `Safety-vest`만 추려 최종 학습용 YOLO 데이터셋으로 변환합니다.
+
+원본 클래스는 아래 기준으로 다시 매핑해야 합니다.
+
+```text
+Person -> person -> 1
+Helmet -> helmet -> 0
+Safety-vest -> vest -> 2
+```
+
+중요: 원본 class id를 그대로 쓰면 안 됩니다. 최종 YOLO 라벨 txt에는 반드시 `helmet=0`, `person=1`, `vest=2`가 저장되어야 하며, 그 외 클래스는 모두 제외합니다.
+
+변환은 아래 스크립트로 수행합니다.
+
+```bash
+python scripts/convert_sh17_to_hiyoung_ppe.py
+```
+
+기본 경로는 아래를 사용합니다.
+
+- `--src-root raw_datasets/sh17`
+- `--dst-root datasets/hiyoung_ppe`
+- `--train-list raw_datasets/sh17/train_files.txt`
+- `--val-list raw_datasets/sh17/val_files.txt`
+
+빈 라벨이 된 이미지도 유지하려면 아래 옵션을 추가합니다.
+
+```bash
+python scripts/convert_sh17_to_hiyoung_ppe.py --keep-empty
+```
+
+변환이 끝나면 아래 순서로 진행합니다.
+
+1. `python scripts/check_yolo_dataset.py`
+2. `python scripts/train_yolo.py --model yolo11s.pt --epochs 10 --imgsz 640 --data datasets/hiyoung_ppe_local.yaml --name test_helmet_person_vest_yolo11s`
+
 ## 외부 프로젝트 반영 방법
 
 학습이 끝나면 보통 `runs/.../weights/best.pt`가 생성됩니다. 이 파일을 외부 프로젝트의 아래 폴더로 복사합니다.
