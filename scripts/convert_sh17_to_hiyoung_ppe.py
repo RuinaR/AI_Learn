@@ -13,10 +13,10 @@ TARGET_CLASS_IDS = {
     "vest": 2,
 }
 
-SOURCE_TO_TARGET = {
-    "person": "person",
-    "helmet": "helmet",
-    "safetyvest": "vest",
+SOURCE_TO_TARGET_ID = {
+    10: TARGET_CLASS_IDS["helmet"],
+    0: TARGET_CLASS_IDS["person"],
+    16: TARGET_CLASS_IDS["vest"],
 }
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
@@ -60,40 +60,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Keep images even when no target labels remain after filtering.",
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Delete the destination dataset root before conversion.",
+    )
     return parser.parse_args()
-
-
-def normalize_name(value: str) -> str:
-    return "".join(ch for ch in value.lower() if ch.isalnum())
-
-
-def load_source_class_mapping(classes_path: Path) -> dict[int, int]:
-    if not classes_path.exists():
-        raise FileNotFoundError(f"classes.txt not found: {classes_path}")
-
-    source_to_target_id: dict[int, int] = {}
-    with classes_path.open("r", encoding="utf-8") as file:
-        for source_id, raw_line in enumerate(file):
-            class_name = raw_line.strip()
-            if not class_name:
-                continue
-
-            normalized = normalize_name(class_name)
-            target_name = SOURCE_TO_TARGET.get(normalized)
-            if target_name is None:
-                continue
-
-            source_to_target_id[source_id] = TARGET_CLASS_IDS[target_name]
-
-    required = {"helmet", "person", "vest"}
-    found = {name for source_id, target_id in source_to_target_id.items() for name, cid in TARGET_CLASS_IDS.items() if cid == target_id}
-    missing = required - found
-    if missing:
-        raise ValueError(
-            f"Missing required SH17 classes in {classes_path}: {sorted(missing)}"
-        )
-
-    return source_to_target_id
 
 
 def read_file_list(list_path: Path) -> list[str]:
@@ -248,9 +220,7 @@ def print_summary(stats: ConversionStats) -> None:
 
     print("\nNext commands")
     print("python scripts/check_yolo_dataset.py")
-    print(
-        "python scripts/train_yolo.py --model yolo11s.pt --epochs 10 --imgsz 640 --data datasets/hiyoung_ppe_local.yaml --name test_helmet_person_vest_yolo11s"
-    )
+    print("python scripts/visualize_yolo_labels.py --split val --count 12")
 
 
 def main() -> int:
@@ -258,13 +228,24 @@ def main() -> int:
     src_root = Path(args.src_root).resolve()
     dst_root = Path(args.dst_root).resolve()
 
-    classes_path = src_root / "classes.txt"
-    source_to_target_id = load_source_class_mapping(classes_path)
+    if dst_root.exists():
+        if args.overwrite:
+            shutil.rmtree(dst_root)
+        else:
+            raise FileExistsError(
+                f"Destination already exists: {dst_root}. "
+                "Remove it manually or rerun with --overwrite."
+            )
+
     stats = ConversionStats()
 
     print(f"Source root: {src_root}")
     print(f"Destination root: {dst_root}")
-    print(f"Class id remap: source ids -> target ids {source_to_target_id}")
+    print(
+        "Verified SH17 source ids from source-id previews: "
+        "helmet=10, person=0, vest=16"
+    )
+    print(f"Class id remap: source ids -> target ids {SOURCE_TO_TARGET_ID}")
     print("Target classes: helmet=0, person=1, vest=2")
 
     split_to_entries = {
@@ -283,7 +264,7 @@ def main() -> int:
             entries=entries,
             src_root=src_root,
             dst_root=dst_root,
-            source_to_target_id=source_to_target_id,
+            source_to_target_id=SOURCE_TO_TARGET_ID,
             keep_empty=args.keep_empty,
             stats=stats,
         )
@@ -294,4 +275,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

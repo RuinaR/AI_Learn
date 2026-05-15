@@ -26,6 +26,16 @@ Helmet -> helmet
 Safety-vest -> vest
 ```
 
+실제 SH17 원본 클래스 목록 텍스트 파일은 [raw_datasets/sh17/새 텍스트 문서.txt](</C:/Users/AISW_203_114/Desktop/AI_Learn/raw_datasets/sh17/새 텍스트 문서.txt>) 에 있지만, 이 순서가 실제 YOLO 라벨 id와 일치하지 않을 수 있습니다.
+
+따라서 이 작업공간에서는 [scripts/visualize_sh17_source_ids.py](</C:/Users/AISW_203_114/Desktop/AI_Learn/scripts/visualize_sh17_source_ids.py>) 로 source id preview를 직접 확인해 실제 id를 확정했습니다.
+
+```text
+Person = 0
+Helmet = 10
+Safety-vest = 16
+```
+
 중요: 원본 데이터셋의 class id를 그대로 사용하면 안 됩니다. 최종 YOLO 라벨은 반드시 아래 기준으로 다시 매핑해야 합니다.
 
 ```text
@@ -117,17 +127,17 @@ SH17 원본 데이터셋은 `raw_datasets/sh17/` 아래에 두고, 원본 클래
 원본 클래스는 아래 기준으로 다시 매핑해야 합니다.
 
 ```text
-Person -> person -> 1
-Helmet -> helmet -> 0
-Safety-vest -> vest -> 2
+Person (source id 0) -> person -> 1
+Helmet (source id 10) -> helmet -> 0
+Safety-vest (source id 16) -> vest -> 2
 ```
 
 중요: 원본 class id를 그대로 쓰면 안 됩니다. 최종 YOLO 라벨 txt에는 반드시 `helmet=0`, `person=1`, `vest=2`가 저장되어야 하며, 그 외 클래스는 모두 제외합니다.
 
-변환은 아래 스크립트로 수행합니다.
+기존 `datasets/hiyoung_ppe/`가 이미 있다면, 잘못 변환된 라벨이 섞이지 않도록 삭제 후 다시 생성해야 합니다. 변환 스크립트는 `--overwrite` 옵션으로 이를 처리합니다.
 
 ```bash
-python scripts/convert_sh17_to_hiyoung_ppe.py
+python scripts/convert_sh17_to_hiyoung_ppe.py --overwrite
 ```
 
 기본 경로는 아래를 사용합니다.
@@ -140,13 +150,33 @@ python scripts/convert_sh17_to_hiyoung_ppe.py
 빈 라벨이 된 이미지도 유지하려면 아래 옵션을 추가합니다.
 
 ```bash
-python scripts/convert_sh17_to_hiyoung_ppe.py --keep-empty
+python scripts/convert_sh17_to_hiyoung_ppe.py --overwrite --keep-empty
 ```
 
-변환이 끝나면 아래 순서로 진행합니다.
+학습 전에는 반드시 구조 검사와 라벨 시각화를 먼저 확인합니다.
 
 1. `python scripts/check_yolo_dataset.py`
-2. `python scripts/train_yolo.py --model yolo11s.pt --epochs 10 --imgsz 640 --data datasets/hiyoung_ppe_local.yaml --name test_helmet_person_vest_yolo11s`
+2. `python scripts/visualize_yolo_labels.py --split val --count 12`
+3. `datasets/hiyoung_ppe_previews/` 아래 결과 이미지를 열어서 `helmet`, `person`, `vest` 라벨명이 실제 물체와 맞는지 확인합니다.
+4. 그 다음에만 학습을 시작합니다.
+
+중요: 학습 전 라벨 시각화 확인은 필수입니다. `val_batch_labels.jpg` 등에서 헬멧이 `vest`로 보였다면 변환 매핑이 잘못된 상태이므로, 학습을 진행하면 안 됩니다.
+
+현재 생성된 테스트 가중치 `runs/test_helmet_person_vest_yolo11s/weights/best.pt` 는 잘못된 라벨로 학습되었으므로 사용하지 않습니다. 필요하면 올바른 라벨로 데이터셋을 다시 만든 뒤 새로 학습해야 합니다.
+
+이번 수정 후 다시 실행할 명령은 아래와 같습니다.
+
+```bash
+python scripts/convert_sh17_to_hiyoung_ppe.py --overwrite
+python scripts/check_yolo_dataset.py
+python scripts/visualize_yolo_labels.py --split val --count 12
+```
+
+특정 클래스만 따로 확인하고 싶으면 `--class-id` 와 `--output-dir` 를 함께 사용할 수 있습니다. 예를 들어 vest만 따로 확인하려면 아래처럼 실행합니다.
+
+```bash
+python scripts/visualize_yolo_labels.py --split train --count 12 --class-id 2 --output-dir datasets/hiyoung_ppe_previews_vest
+```
 
 ## 외부 프로젝트 반영 방법
 
