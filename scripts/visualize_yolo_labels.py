@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import cv2
+import numpy as np
 import yaml
-from PIL import Image, ImageDraw, ImageFont
 
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
@@ -46,6 +47,24 @@ def parse_args() -> argparse.Namespace:
         "--output-dir",
         default="datasets/hiyoung_ppe_previews",
         help="Directory where preview images will be written.",
+    )
+    parser.add_argument(
+        "--font-scale",
+        type=float,
+        default=1.2,
+        help="Font scale used for cv2 label text rendering.",
+    )
+    parser.add_argument(
+        "--font-thickness",
+        type=int,
+        default=3,
+        help="Line thickness used for cv2 label text rendering.",
+    )
+    parser.add_argument(
+        "--box-thickness",
+        type=int,
+        default=3,
+        help="Line thickness used for bounding boxes.",
     )
     return parser.parse_args()
 
@@ -92,23 +111,72 @@ def yolo_to_xyxy(width: int, height: int, parts: list[str]) -> tuple[float, floa
     return x1, y1, x2, y2
 
 
+def hex_to_bgr(color: str) -> tuple[int, int, int]:
+    color = color.lstrip("#")
+    if len(color) != 6:
+        return 255, 255, 255
+    red = int(color[0:2], 16)
+    green = int(color[2:4], 16)
+    blue = int(color[4:6], 16)
+    return blue, green, red
+
+
 def draw_label(
-    draw: ImageDraw.ImageDraw,
-    font: ImageFont.ImageFont,
+    image: np.ndarray,
     box: tuple[float, float, float, float],
     class_name: str,
-    color: str,
+    color: tuple[int, int, int],
+    font_scale: float,
+    font_thickness: int,
+    box_thickness: int,
 ) -> None:
     x1, y1, x2, y2 = box
-    draw.rectangle((x1, y1, x2, y2), outline=color, width=3)
+    image_height, image_width = image.shape[:2]
+    x1 = max(0, min(image_width - 1, int(round(x1))))
+    y1 = max(0, min(image_height - 1, int(round(y1))))
+    x2 = max(0, min(image_width - 1, int(round(x2))))
+    y2 = max(0, min(image_height - 1, int(round(y2))))
 
-    text_bbox = draw.textbbox((x1, y1), class_name, font=font)
-    text_width = text_bbox[2] - text_bbox[0]
-    text_height = text_bbox[3] - text_bbox[1]
-    text_top = max(0, y1 - text_height - 6)
-    text_bottom = text_top + text_height + 4
-    draw.rectangle((x1, text_top, x1 + text_width + 8, text_bottom), fill=color)
-    draw.text((x1 + 4, text_top + 2), class_name, fill="black", font=font)
+    cv2.rectangle(image, (x1, y1), (x2, y2), color, thickness=box_thickness)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    padding_x = 6
+    padding_y = 6
+    baseline_pad = 4
+    (text_width, text_height), baseline = cv2.getTextSize(
+        class_name, font, font_scale, font_thickness
+    )
+    label_height = text_height + baseline + padding_y * 2
+    label_width = text_width + padding_x * 2
+
+    label_left = x1
+    label_top = y1 - label_height - 2
+    if label_top < 0:
+        label_top = min(image_height - label_height, y1 + 2)
+    label_left = min(label_left, max(0, image_width - label_width))
+    label_bottom = label_top + label_height
+    label_right = label_left + label_width
+
+    cv2.rectangle(
+        image,
+        (label_left, label_top),
+        (label_right, label_bottom),
+        color,
+        thickness=-1,
+    )
+
+    text_x = label_left + padding_x
+    text_y = label_top + padding_y + text_height
+    cv2.putText(
+        image,
+        class_name,
+        (text_x, text_y),
+        font,
+        font_scale,
+        (255, 255, 255),
+        thickness=font_thickness,
+        lineType=cv2.LINE_AA,
+    )
 
 
 def collect_label_paths(label_dir: Path) -> list[Path]:
@@ -153,7 +221,6 @@ def main() -> int:
         print(f"No labeled samples found in {label_dir}")
         return 1
 
-    font = ImageFont.load_default()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     rendered = 0
@@ -169,23 +236,33 @@ def main() -> int:
         if image_path is None:
             continue
 
-        image = Image.open(image_path).convert("RGB")
-        draw = ImageDraw.Draw(image)
-        width, height = image.size
+        image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+        if image is None:
+            continue
+
+        height, width = image.shape[:2]
 
         has_box = False
         for parts in label_rows:
             class_id = int(parts[0])
             class_name = class_names[class_id]
-            color = BOX_COLORS.get(class_id, "#ffffff")
-            draw_label(draw, font, yolo_to_xyxy(width, height, parts), class_name, color)
+            color = hex_to_bgr(BOX_COLORS.get(class_id, "#000000"))
+            draw_label(
+                image,
+                yolo_to_xyxy(width, height, parts),
+                class_name,
+                color,
+                args.font_scale,
+                args.font_thickness,
+                args.box_thickness,
+            )
             has_box = True
 
         if not has_box:
             continue
 
         preview_name = f"{args.split}_{rendered:02d}_{image_path.stem}.jpg"
-        image.save(output_dir / preview_name, quality=95)
+        cv2.imwrite(str(output_dir / preview_name), image)
         print(f"Wrote {output_dir / preview_name}")
         rendered += 1
 

@@ -178,6 +178,12 @@ python scripts/visualize_yolo_labels.py --split val --count 12
 python scripts/visualize_yolo_labels.py --split train --count 12 --class-id 2 --output-dir datasets/hiyoung_ppe_previews_vest
 ```
 
+라벨 글씨가 작게 보여 preview 확인이 어렵다면, 큰 글씨 옵션으로 다시 렌더링할 수 있습니다. 아래 예시는 글자 크기와 선 두께를 키우고, 라벨 배경 박스를 함께 그려서 더 잘 보이게 만드는 명령입니다.
+
+```bash
+python scripts/visualize_yolo_labels.py --split val --count 12 --class-id 0 --font-scale 1.5 --font-thickness 4 --box-thickness 4 --output-dir datasets/preview_helmet_big
+```
+
 ## 외부 프로젝트 반영 방법
 
 학습이 끝나면 보통 `runs/.../weights/best.pt`가 생성됩니다. 이 파일을 외부 프로젝트의 아래 폴더로 복사합니다.
