@@ -2,7 +2,7 @@
 
 이 문서는 `AI_Learn` 저장소에서 YOLO 기반 헬멧/사람/조끼 PPE 객체 탐지 모델을 학습할 때 사용한 주요 파라미터를 정리한 문서입니다.
 
-중요: `scripts/train_yolo.py`에는 이전 기준의 기본값으로 `yolo11m.pt`가 남아 있을 수 있습니다. 가장 최근에 실제 학습하고 Git에 올린 모델은 26n 모델 기준으로 정리합니다.
+기준 파일은 `notebooks/train_hiyoung_ppe_colab.ipynb`입니다. 해당 노트북의 본 학습 셀에 남아 있는 실행 명령을 기준으로 가장 최근 학습 파라미터를 정리했습니다.
 
 ## 학습 목적
 
@@ -32,13 +32,13 @@ Safety-vest source id 16 -> vest   -> 2
 
 ## 데이터셋 YAML
 
-Colab 및 Google Drive 기준 학습에서는 아래 YAML 경로를 사용했습니다.
+Colab 노트북에서는 `/content/AI_Learn/datasets/hiyoung_ppe_content.yaml` 파일을 생성해서 사용했습니다.
 
 ```yaml
-path: /content/drive/MyDrive/AI_Learn/datasets/hiyoung_ppe
+path: /content/AI_Learn/datasets/hiyoung_ppe
+
 train: images/train
 val: images/val
-test: images/test
 
 names:
   0: helmet
@@ -48,72 +48,100 @@ names:
 
 ## 최근 본 학습 파라미터
 
-가장 최근에 실제 학습한 모델은 26n 모델입니다.
+가장 최근 본 학습은 `yolo26n.pt`를 사용했습니다.
 
 | 항목 | 값 | 설명 |
 |---|---:|---|
-| Base model | `yolo26n.pt` | 최근 학습에 사용한 26n 계열 모델 |
-| Dataset YAML | `/content/drive/MyDrive/AI_Learn/datasets/hiyoung_ppe.yaml` | Colab + Google Drive 기준 데이터셋 설정 파일 |
-| Epochs | `120` | 학습 epoch 수 |
-| Image size | `960` | 입력 이미지 크기 |
-| Batch size | `-1` | Ultralytics YOLO의 자동 batch 설정 사용 |
-| Device | `0` | 첫 번째 GPU 사용 |
-| Patience | `30` | Early stopping 기준 epoch 수 |
-| Project | `/content/drive/MyDrive/AI_Learn/runs` | 학습 결과 저장 위치 |
-| Run name | `helmet_person_vest_yolo26n_960` | 26n 학습 실행 이름 |
+| Base model | `/content/AI_Learn/yolo26n.pt` | Google Drive에서 복사한 26n 모델 가중치 |
+| 원본 모델 위치 | `/content/drive/MyDrive/AI_Learn/yolo26n.pt` | Colab 실행 전 Drive에 둔 모델 파일 |
+| Dataset YAML | `datasets/hiyoung_ppe_content.yaml` | Colab 런타임 내부 기준 데이터셋 설정 파일 |
+| Epochs | `60` | 학습 epoch 수 |
+| Image size | `640` | 입력 이미지 크기 |
+| Project | `/content/AI_Learn/runs` | 학습 결과 저장 위치 |
+| Run name | `helmet_person_vest_yolo26n_640_e60` | 26n 학습 실행 이름 |
 
-## 실행 명령 예시
+노트북 학습 셀에는 `batch`, `device`, `patience` 옵션을 명시하지 않았습니다. 따라서 해당 값들은 Ultralytics YOLO의 기본 동작을 따릅니다.
+
+## 실행 명령
+
+`notebooks/train_hiyoung_ppe_colab.ipynb`의 본 학습 셀 기준 실행 명령은 아래와 같습니다.
 
 ```bash
+cd /content/AI_Learn
+
+cp /content/drive/MyDrive/AI_Learn/yolo26n.pt /content/AI_Learn/yolo26n.pt
+
 python scripts/train_yolo.py \
-  --model yolo26n.pt \
-  --data /content/drive/MyDrive/AI_Learn/datasets/hiyoung_ppe.yaml \
-  --epochs 120 \
-  --imgsz 960 \
-  --batch -1 \
-  --device 0 \
-  --patience 30 \
-  --project /content/drive/MyDrive/AI_Learn/runs \
-  --name helmet_person_vest_yolo26n_960
+  --model /content/AI_Learn/yolo26n.pt \
+  --epochs 60 \
+  --imgsz 640 \
+  --data datasets/hiyoung_ppe_content.yaml \
+  --project /content/AI_Learn/runs \
+  --name helmet_person_vest_yolo26n_640_e60
 ```
 
-## 이전 테스트/기본값 참고
+## 검증 명령
 
-본 학습 전에 데이터셋 구조, 라벨 매핑, 클래스 이름이 정상적으로 동작하는지 확인하기 위해 테스트 학습을 먼저 진행하는 흐름을 사용했습니다.
-
-| 항목 | 값 |
-|---|---|
-| 테스트 모델 | `yolo11s` |
-| 테스트 Epoch | `10` |
-| 목적 | 데이터셋 구조, 클래스 순서, 라벨 매핑 검증 |
-| 검증 기준 | `best.pt`의 클래스 이름이 `helmet`, `person`, `vest` 순서인지 확인 |
-
-현재 `scripts/train_yolo.py`의 기본값은 이전 학습 기준인 `yolo11m.pt`, `helmet_person_vest_yolo11m_960`으로 남아 있을 수 있습니다. 최신 실험 내용을 재현하려면 위의 26n 실행 명령처럼 `--model`, `--name`을 명시해서 실행합니다.
-
-## 학습 전 확인 절차
-
-학습 전에 아래 순서로 데이터셋과 라벨 상태를 확인했습니다.
+학습 후 아래 명령으로 최종 `best.pt`를 검증했습니다.
 
 ```bash
-python scripts/convert_sh17_to_hiyoung_ppe.py --overwrite
-python scripts/check_yolo_dataset.py
-python scripts/visualize_yolo_labels.py --split val --count 12
+python scripts/validate_model.py \
+  --weights /content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/weights/best.pt
 ```
 
-라벨 시각화 결과에서 헬멧, 사람, 안전조끼가 각각 `helmet`, `person`, `vest`로 올바르게 표시되는지 확인한 뒤 학습을 진행했습니다.
+노트북에서는 이어서 아래 결과 이미지를 확인했습니다.
+
+```text
+/content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/val_batch0_labels.jpg
+/content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/val_batch0_pred.jpg
+/content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/confusion_matrix.png
+/content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/results.png
+```
 
 ## 학습 결과물
 
 학습 완료 후 생성되는 기본 가중치 파일은 아래 위치에 저장됩니다.
 
 ```text
-/content/drive/MyDrive/AI_Learn/runs/helmet_person_vest_yolo26n_960/weights/best.pt
+/content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/weights/best.pt
 ```
 
-최종 검증이 끝난 가중치는 외부 프로젝트에서 사용하기 쉽도록 아래와 같은 이름으로 복사해서 관리합니다.
+최종 검증이 끝난 가중치는 Google Drive의 `weights/` 폴더로 복사했습니다.
+
+```bash
+mkdir -p /content/drive/MyDrive/AI_Learn/weights
+
+cp /content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/weights/best.pt \
+  /content/drive/MyDrive/AI_Learn/weights/hiyoung_helmet_person_vest_yolo26n_640_e60.pt
+```
+
+최종 파일명은 아래와 같습니다.
 
 ```text
-weights/hiyoung_helmet_person_vest_yolo26n.pt
+/content/drive/MyDrive/AI_Learn/weights/hiyoung_helmet_person_vest_yolo26n_640_e60.pt
+```
+
+## 이전 테스트 학습 참고
+
+본 학습 전에 데이터셋 구조, 라벨 매핑, 클래스 이름이 정상적으로 동작하는지 확인하기 위해 테스트 학습을 먼저 진행했습니다.
+
+| 항목 | 값 |
+|---|---|
+| 테스트 모델 | `yolo11s.pt` |
+| 테스트 Epoch | `10` |
+| 테스트 Image size | `640` |
+| 테스트 Dataset YAML | `datasets/hiyoung_ppe_content.yaml` |
+| 테스트 Run name | `test_fixed_helmet_person_vest_yolo11s` |
+
+테스트 학습 명령은 아래와 같습니다.
+
+```bash
+python scripts/train_yolo.py \
+  --model yolo11s.pt \
+  --epochs 10 \
+  --imgsz 640 \
+  --data datasets/hiyoung_ppe_content.yaml \
+  --name test_fixed_helmet_person_vest_yolo11s
 ```
 
 ## Git 관리 비고
