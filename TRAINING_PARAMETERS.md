@@ -1,152 +1,157 @@
 # 모델 학습 파라미터
 
-이 문서는 `AI_Learn` 저장소에서 YOLO 기반 헬멧/사람/조끼 PPE 객체 탐지 모델을 학습할 때 사용한 주요 파라미터를 정리한 문서입니다.
-
-기준 파일은 `notebooks/train_hiyoung_ppe_colab.ipynb`입니다. 해당 노트북의 본 학습 셀에 남아 있는 실행 명령을 기준으로 가장 최근 학습 파라미터를 정리했습니다.
-
-## 학습 목적
-
-- 작업 목적: 헬멧, 사람, 안전조끼를 탐지하는 PPE 객체 탐지 모델 학습
-- 사용 모델 계열: Ultralytics YOLO
-- 최종 사용 목적: 외부 프로젝트의 AI Worker에서 `.pt` 가중치 파일을 로드하여 실시간 안전 모니터링에 사용
+이 문서는 현재 저장소 기준의 권장 학습 설정을 정리합니다. 목표는 로컬 GPU에서 `yolo26x`로 `helmet`, `person` 2클래스만 최대한 정확하게 학습하는 것입니다.
 
 ## 클래스 구성
-
-학습 데이터셋의 최종 클래스 순서는 아래 순서를 기준으로 사용했습니다.
 
 ```yaml
 0: helmet
 1: person
-2: vest
 ```
 
-원본 SH17 데이터셋에서는 필요한 클래스만 추려서 아래처럼 다시 매핑했습니다.
+원본 SH17 매핑은 아래를 사용합니다.
 
 ```text
-Person source id 0       -> person -> 1
-Helmet source id 10      -> helmet -> 0
-Safety-vest source id 16 -> vest   -> 2
+Helmet source id 10 -> helmet -> 0
+Person source id 0  -> person -> 1
 ```
 
-중요: 원본 데이터셋의 클래스 id를 그대로 사용하지 않고, 최종 YOLO 라벨 기준에 맞춰 `helmet=0`, `person=1`, `vest=2`로 재매핑했습니다.
+`Safety-vest`와 기타 클래스는 모두 제거합니다.
 
 ## 데이터셋 YAML
 
-Colab 노트북에서는 `/content/AI_Learn/datasets/hiyoung_ppe_content.yaml` 파일을 생성해서 사용했습니다.
+로컬 기본 YAML:
 
 ```yaml
-path: /content/AI_Learn/datasets/hiyoung_ppe
-
+path: C:/Users/AISW_203_114/Desktop/AI_Learn/datasets/hiyoung_ppe
 train: images/train
 val: images/val
+test: images/test
 
 names:
   0: helmet
   1: person
-  2: vest
 ```
 
-## 최근 본 학습 파라미터
+## 권장 본 학습 설정
 
-가장 최근 본 학습은 `yolo26n.pt`를 사용했습니다.
+| 항목 | 값 |
+|---|---:|
+| Base model | `yolo26x.pt` |
+| Dataset YAML | `datasets/hiyoung_ppe_local.yaml` |
+| Epochs | `120` |
+| Image size | `960` |
+| Batch | `0.70` |
+| Device | `0` |
+| Patience | `25` |
+| Cache | `ram` |
+| Optimizer | `auto` |
+| Close mosaic | `10` |
+| Mosaic | `0.9` |
+| MixUp | `0.2` |
+| Copy-paste | `0.2` |
+| Degrees | `0.0` |
+| Translate | `0.2` |
+| Scale | `0.85` |
+| Horizontal flip | `0.3` |
+| HSV-H | `0.013` |
+| HSV-S | `0.35` |
+| HSV-V | `0.2` |
+| Weight decay | `0.00027` |
+| Warmup epochs | `3.0` |
+| Box loss | `9.83` |
+| Cls loss | `0.65` |
+| Cls weight power | `0.25` |
+| DFL | `0.96` |
+| Erasing | `0.1` |
+| Project | `runs` |
+| Run name | `helmet_person_yolo26x_960_rtx3080` |
+| Engine export | `enabled` |
+| Engine batch | `1` |
+| Engine workspace | `4.0 GiB` |
 
-| 항목 | 값 | 설명 |
-|---|---:|---|
-| Base model | `/content/AI_Learn/yolo26n.pt` | Google Drive에서 복사한 26n 모델 가중치 |
-| 원본 모델 위치 | `/content/drive/MyDrive/AI_Learn/yolo26n.pt` | Colab 실행 전 Drive에 둔 모델 파일 |
-| Dataset YAML | `datasets/hiyoung_ppe_content.yaml` | Colab 런타임 내부 기준 데이터셋 설정 파일 |
-| Epochs | `60` | 학습 epoch 수 |
-| Image size | `640` | 입력 이미지 크기 |
-| Project | `/content/AI_Learn/runs` | 학습 결과 저장 위치 |
-| Run name | `helmet_person_vest_yolo26n_640_e60` | 26n 학습 실행 이름 |
-
-노트북 학습 셀에는 `batch`, `device`, `patience` 옵션을 명시하지 않았습니다. 따라서 해당 값들은 Ultralytics YOLO의 기본 동작을 따릅니다.
-
-## 실행 명령
-
-`notebooks/train_hiyoung_ppe_colab.ipynb`의 본 학습 셀 기준 실행 명령은 아래와 같습니다.
+## 권장 실행 명령
 
 ```bash
-cd /content/AI_Learn
+py -3.12 scripts/convert_sh17_to_hiyoung_ppe.py --overwrite
+py -3.12 scripts/check_yolo_dataset.py
+py -3.12 scripts/visualize_yolo_labels.py --split val --count 12
 
-cp /content/drive/MyDrive/AI_Learn/yolo26n.pt /content/AI_Learn/yolo26n.pt
-
-python scripts/train_yolo.py \
-  --model /content/AI_Learn/yolo26n.pt \
-  --epochs 60 \
-  --imgsz 640 \
-  --data datasets/hiyoung_ppe_content.yaml \
-  --project /content/AI_Learn/runs \
-  --name helmet_person_vest_yolo26n_640_e60
+py -3.12 scripts/train_yolo.py \
+  --model yolo26x.pt \
+  --data datasets/hiyoung_ppe_local.yaml \
+  --device 0 \
+  --epochs 120 \
+  --imgsz 960 \
+  --batch 0.70 \
+  --name helmet_person_yolo26x_960_rtx3080 \
+  --cos-lr
 ```
+
+이 명령은 학습 후 `best.pt` 기준으로 TensorRT `.engine` export까지 같이 수행합니다.
+
+한 번에 실행하려면 루트의 `train_engine_rtx3080.cmd`를 사용해도 됩니다.
+
+중간 종료 후 재개하려면 루트의 `resume_train_engine_rtx3080.cmd`를 사용하면 됩니다.
+
+## 반영 근거
+
+- YOLO26 X pretraining recipe는 `MuSGD`, 낮은 `lr0`, 높은 `mosaic/scale`, `close_mosaic=10`, `degrees=0` 성향을 사용합니다.
+- YOLO fine-tuning 가이드는 커스텀 데이터에선 기본값부터 시작하고, 작은 물체면 `imgsz=1280`, 클래스 불균형이면 `cls_pw`를 조정하라고 권장합니다.
+- 현재 데이터는 자연 이미지 기반이라 COCO와 도메인이 크게 다르지 않지만, `helmet`이 소수 클래스이고 작은 박스로 등장할 가능성이 커서 `imgsz`, `cls_pw`, `mosaic/scale` 쪽을 보강했습니다.
+- 로컬 머신은 `NVIDIA GeForce RTX 3080 10GB`이고 현재 데스크톱 프로세스가 약 `1.47GB` VRAM을 사용 중이라, 기본 프리셋은 `960 / batch 0.70`으로 맞췄습니다.
+
+## 자동 튜닝 명령
+
+```bash
+py -3.12 scripts/tune_yolo.py \
+  --model yolo26x.pt \
+  --data datasets/hiyoung_ppe_local.yaml \
+  --device 0 \
+  --iterations 30
+```
+
+## RTX 3080 10GB 권장 단계
+
+1. 1차 안정 프리셋: `--imgsz 960 --batch 0.70`
+2. 2차 정확도 프리셋: 다른 GPU 점유 앱을 줄인 뒤 `--imgsz 1280 --batch 0.55`
+3. OOM 시: `--batch 0.60` 또는 `--batch 0.50`
+
+## GPU 메모리 부족 시 대안
+
+메모리가 부족하면 아래 순서로 하나씩 낮추는 것을 권장합니다.
+
+1. `--imgsz 960`
+2. `--batch 4`
+3. `--batch 2`
+4. 필요하면 `--model yolo26l.pt`
+
+정확도 우선이라면 가능하면 `yolo26x`를 유지하고, 먼저 `imgsz`와 `batch`를 조정하는 편이 좋습니다.
 
 ## 검증 명령
 
-학습 후 아래 명령으로 최종 `best.pt`를 검증했습니다.
-
 ```bash
-python scripts/validate_model.py \
-  --weights /content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/weights/best.pt
+py -3.12 scripts/validate_model.py \
+  --weights runs/helmet_person_yolo26x_960_rtx3080/weights/best.pt
 ```
 
-노트북에서는 이어서 아래 결과 이미지를 확인했습니다.
+정상 상태에서는 클래스명이 `helmet`, `person`만 확인되어야 합니다.
 
-```text
-/content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/val_batch0_labels.jpg
-/content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/val_batch0_pred.jpg
-/content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/confusion_matrix.png
-/content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/results.png
-```
+## TensorRT 엔진 관련 옵션
 
-## 학습 결과물
+기본값:
 
-학습 완료 후 생성되는 기본 가중치 파일은 아래 위치에 저장됩니다.
+- `--engine-batch 1`
+- `--engine-workspace 4.0`
+- FP16 엔진 export 사용
 
-```text
-/content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/weights/best.pt
-```
-
-최종 검증이 끝난 가중치는 Google Drive의 `weights/` 폴더로 복사했습니다.
-
-```bash
-mkdir -p /content/drive/MyDrive/AI_Learn/weights
-
-cp /content/AI_Learn/runs/helmet_person_vest_yolo26n_640_e60/weights/best.pt \
-  /content/drive/MyDrive/AI_Learn/weights/hiyoung_helmet_person_vest_yolo26n_640_e60.pt
-```
-
-최종 파일명은 아래와 같습니다.
-
-```text
-/content/drive/MyDrive/AI_Learn/weights/hiyoung_helmet_person_vest_yolo26n_640_e60.pt
-```
-
-## 이전 테스트 학습 참고
-
-본 학습 전에 데이터셋 구조, 라벨 매핑, 클래스 이름이 정상적으로 동작하는지 확인하기 위해 테스트 학습을 먼저 진행했습니다.
-
-| 항목 | 값 |
-|---|---|
-| 테스트 모델 | `yolo11s.pt` |
-| 테스트 Epoch | `10` |
-| 테스트 Image size | `640` |
-| 테스트 Dataset YAML | `datasets/hiyoung_ppe_content.yaml` |
-| 테스트 Run name | `test_fixed_helmet_person_vest_yolo11s` |
-
-테스트 학습 명령은 아래와 같습니다.
+예시:
 
 ```bash
 python scripts/train_yolo.py \
-  --model yolo11s.pt \
-  --epochs 10 \
-  --imgsz 640 \
-  --data datasets/hiyoung_ppe_content.yaml \
-  --name test_fixed_helmet_person_vest_yolo11s
+  --device 0 \
+  --imgsz 960 \
+  --batch 0.70 \
+  --engine-batch 1 \
+  --engine-workspace 4
 ```
-
-## Git 관리 비고
-
-- `runs/` 폴더의 중간 학습 산출물은 Git에 올리지 않습니다.
-- `raw_datasets/`, `datasets/hiyoung_ppe/`, `downloads/`, `runs/`, `logs/`는 Git 제외 대상입니다.
-- 최종 공유 또는 배포용 `.pt` 파일만 `weights/` 폴더에 복사해서 관리합니다.
-- 파일 크기가 큰 `.pt` 가중치는 Git LFS 사용을 권장합니다.

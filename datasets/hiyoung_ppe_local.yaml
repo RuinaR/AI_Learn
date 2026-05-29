@@ -6,4 +6,3 @@ test: images/test
 names:
   0: helmet
   1: person
-  2: vest

@@ -10,13 +10,11 @@ from pathlib import Path
 TARGET_CLASS_IDS = {
     "helmet": 0,
     "person": 1,
-    "vest": 2,
 }
 
 SOURCE_TO_TARGET_ID = {
     10: TARGET_CLASS_IDS["helmet"],
     0: TARGET_CLASS_IDS["person"],
-    16: TARGET_CLASS_IDS["vest"],
 }
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
@@ -214,7 +212,6 @@ def print_summary(stats: ConversionStats) -> None:
     print(f"- test images: {stats.split_images['test']}")
     print(f"- helmet labels: {stats.class_labels['helmet']}")
     print(f"- person labels: {stats.class_labels['person']}")
-    print(f"- vest labels: {stats.class_labels['vest']}")
     print(f"- excluded labels: {stats.excluded_labels}")
     print(f"- skipped empty images: {stats.skipped_empty_images}")
 
@@ -242,11 +239,10 @@ def main() -> int:
     print(f"Source root: {src_root}")
     print(f"Destination root: {dst_root}")
     print(
-        "Verified SH17 source ids from source-id previews: "
-        "helmet=10, person=0, vest=16"
+        "Verified SH17 source ids from source-id previews: helmet=10, person=0"
     )
     print(f"Class id remap: source ids -> target ids {SOURCE_TO_TARGET_ID}")
-    print("Target classes: helmet=0, person=1, vest=2")
+    print("Target classes: helmet=0, person=1")
 
     split_to_entries = {
         "train": read_file_list(Path(args.train_list).resolve()),

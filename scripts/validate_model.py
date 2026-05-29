@@ -6,7 +6,7 @@ from pathlib import Path
 from ultralytics import YOLO
 
 
-REQUIRED_CLASSES = {"helmet", "person", "vest"}
+REQUIRED_CLASSES = {"helmet", "person"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -38,7 +38,7 @@ def validate_class_names(model: YOLO) -> bool:
         print(f"Missing required classes: {sorted(missing)}")
         return False
 
-    print("Required classes found: helmet, person, vest")
+    print("Required classes found: helmet, person")
     return True
 
 
